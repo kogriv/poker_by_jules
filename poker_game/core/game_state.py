@@ -51,6 +51,10 @@ class GameState:
     round_number: int = 0
     is_game_over: bool = False
 
+    # Store actual SB/BB player IDs for easier interface display
+    small_blind_player_id: Optional[str] = None
+    big_blind_player_id: Optional[str] = None
+
     # Optional: Could store history of actions for replay or detailed logging
     # action_history: List[Action] = field(default_factory=list)
 
@@ -73,6 +77,8 @@ class GameState:
             "min_bet": self.min_bet,
             "round_number": self.round_number,
             "is_game_over": self.is_game_over,
+            "small_blind_player_id": self.small_blind_player_id,
+            "big_blind_player_id": self.big_blind_player_id,
             # "action_history": [asdict(action) for action in self.action_history]
         }
 
@@ -130,6 +136,8 @@ class GameState:
             min_bet=data.get("min_bet", 20),
             round_number=data.get("round_number", 0),
             is_game_over=data.get("is_game_over", False),
+            small_blind_player_id=data.get("small_blind_player_id"),
+            big_blind_player_id=data.get("big_blind_player_id"),
             # action_history=loaded_action_history
         )
 
