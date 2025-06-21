@@ -1,3 +1,4 @@
+import argparse # Added for command-line arguments
 from poker_game.core.game_engine import GameEngine
 from poker_game.core.player import HumanPlayer
 from poker_game.core.bot_player import RandomBot, TightBot, AggressiveBot # Import available bot types
@@ -7,20 +8,40 @@ from poker_game.storage.memory_storage import MemoryRepository
 from poker_game.config import settings
 
 def main():
-    print("Welcome to Console Poker!")
+    parser = argparse.ArgumentParser(description="Run the Poker Game.")
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["normal", "smoke"],
+        default="normal",
+        help="Game mode: 'normal' for interactive play, 'smoke' for automated human actions (default: normal)."
+    )
+    args = parser.parse_args()
+    game_mode = args.mode
+
+    print(f"Welcome to Console Poker! (Mode: {game_mode})")
 
     # Setup components
     event_system = EventSystem()
     repository = MemoryRepository()
-    interface = ConsoleInterface() # Console interface for MVP
+    # Pass game_mode to interface
+    interface = ConsoleInterface(game_mode=game_mode)
 
     # Player setup
     players = []
 
-    # Get Human player name(s)
-    # For MVP, 1 human player.
-    # human_player_name = interface.get_player_names(num_players=1)[0] # Skip input for smoke test
-    human_player_name = "HumanPlayer"
+    if game_mode == "smoke":
+        human_player_name = "HumanPlayer"
+        print("Smoke mode: Using default name 'HumanPlayer' for human.")
+    else: # normal mode
+        print("Normal mode: Please enter details for the human player.")
+        try:
+            human_player_name = interface.get_player_names(num_players=1)[0]
+        except EOFError:
+            print("\nEOFError encountered getting player name. This is expected in non-interactive sandbox for 'normal' mode.")
+            print("Exiting early for this 'normal' mode sandbox test run.")
+            return # Exit if we can't get name in normal mode in sandbox
+
     human_player = HumanPlayer(player_id=human_player_name, stack=settings.STARTING_STACK)
     players.append(human_player)
 
