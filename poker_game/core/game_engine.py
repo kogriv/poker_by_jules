@@ -193,12 +193,21 @@ class GameEngine:
                             sb_player_active = self._active_round_players[dealer_active_idx]
                             bb_player_active = self._active_round_players[(dealer_active_idx + 1) % num_active_players]
 
-                            sb_amount = sb_player_active.place_bet(min(self.game_state.small_blind, sb_player_active.stack))
+                            sb_player_active = self._active_round_players[dealer_active_idx]
+                            bb_player_active = self._active_round_players[(dealer_active_idx + 1) % num_active_players]
+
+                            # DEBUG: Using settings directly for SB/BB amounts in HU
+                            sb_val = settings.SMALL_BLIND # Direct from settings
+                            bb_val = settings.BIG_BLIND   # Direct from settings
+
+                            sb_amount = sb_player_active.place_bet(min(sb_val, sb_player_active.stack))
                             self.game_state.current_round_pot += sb_amount
+                            self.game_state.small_blind_player_id = sb_player_active.player_id # Set SB player ID
                             self.event_system.post(GameEvent(type="player_action", data={"player_id": sb_player_active.player_id, "action_type": "small_blind", "amount": sb_amount}))
 
-                            bb_amount = bb_player_active.place_bet(min(self.game_state.big_blind, bb_player_active.stack))
+                            bb_amount = bb_player_active.place_bet(min(bb_val, bb_player_active.stack))
                             self.game_state.current_round_pot += bb_amount
+                            self.game_state.big_blind_player_id = bb_player_active.player_id # Set BB player ID
                             self.event_system.post(GameEvent(type="player_action", data={"player_id": bb_player_active.player_id, "action_type": "big_blind", "amount": bb_amount}))
 
                             self.game_state.current_bet_to_match = self.game_state.big_blind
@@ -214,13 +223,15 @@ class GameEngine:
         bb_player = players_in_game[bb_pos]
 
         # Post Small Blind
-        sb_amount = sb_player.place_bet(min(self.game_state.small_blind, sb_player.stack))
+        sb_amount = sb_player.place_bet(min(self.game_state.small_blind, sb_player.stack)) # Using game_state.small_blind here
         self.game_state.current_round_pot += sb_amount
+        self.game_state.small_blind_player_id = sb_player.player_id # Set SB player ID
         self.event_system.post(GameEvent(type="player_action", data={"player_id": sb_player.player_id, "action_type": "small_blind", "amount": sb_amount}))
 
         # Post Big Blind
-        bb_amount = bb_player.place_bet(min(self.game_state.big_blind, bb_player.stack))
+        bb_amount = bb_player.place_bet(min(self.game_state.big_blind, bb_player.stack)) # Using game_state.big_blind here
         self.game_state.current_round_pot += bb_amount
+        self.game_state.big_blind_player_id = bb_player.player_id # Set BB player ID
         self.event_system.post(GameEvent(type="player_action", data={"player_id": bb_player.player_id, "action_type": "big_blind", "amount": bb_amount}))
 
         self.game_state.current_bet_to_match = self.game_state.big_blind
@@ -803,6 +814,7 @@ class GameEngine:
         # Showdown or award pot
         self.game_state.game_phase = "showdown" # Even if uncontested, it's the end phase
         self.event_system.post(GameEvent(type="phase_start", data={"phase": "showdown"}))
+        self.interface.display_game_state(self.game_state, show_hole_cards_for_player=None) # Show final state before winner announcement
         self._determine_winners_and_distribute_pot()
 
         self.event_system.post(GameEvent(type="round_end", data={"round_number": self.game_state.round_number}))
