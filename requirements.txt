@@ -1,0 +1,3 @@
+# No external dependencies for the current MVP.
+# This file is a placeholder for future requirements.
+# Standard library modules like dataclasses, datetime, typing, abc, random, unittest are used.
