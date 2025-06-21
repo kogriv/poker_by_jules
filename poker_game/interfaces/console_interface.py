@@ -5,6 +5,9 @@ from poker_game.core.events import Action, GameEvent
 from poker_game.core.cards import Card # For type hinting if needed
 
 class ConsoleInterface(GameInterface):
+    def __init__(self, game_mode: str = "normal"): # Default to normal if not specified
+        self.game_mode = game_mode
+
     def get_player_action(self, player: Player, game_state: GameState, allowed_actions: dict) -> Action:
         if not isinstance(player, HumanPlayer):
             # Bots decide on their own, this method might not be called for them by GameEngine directly if bots have their own logic path.
@@ -67,133 +70,137 @@ class ConsoleInterface(GameInterface):
 
         print(prompt + ", ".join(possible_choices))
 
-        # SMOKE TEST: Automatically return a default action
-        print(f"SMOKE TEST: {player.player_id} auto-acting.")
-        if allowed_actions.get("check") and (game_state.current_bet_to_match - player.current_bet) <=0:
-            print(f"SMOKE TEST: {player.player_id} auto-checking.")
-            return Action(type="check", player_id=player.player_id)
-        elif allowed_actions.get("call") and (game_state.current_bet_to_match - player.current_bet) > 0:
-            call_cost = min(player.stack, (game_state.current_bet_to_match - player.current_bet))
-            # For smoke test, let's be conservative if must call.
-            # If hand strength is very low, fold, else call.
-            # This requires hand strength, which interface doesn't have.
-            # So, just call for now if it's cheap, or fold if expensive.
-            # Let's simplify: if call is less than 20% of stack, call. Else fold.
-            # Or even simpler for smoke test: always call if call is an option.
-            if "call" in allowed_actions: # Ensure call is truly allowed by rules.get_allowed_actions
-                 actual_call_amount = allowed_actions.get("call") # This is the amount to call
-                 if isinstance(actual_call_amount, int) and actual_call_amount > 0 :
-                    print(f"SMOKE TEST: {player.player_id} auto-calling {actual_call_amount}.")
+        if self.game_mode == "smoke":
+            # SMOKE TEST: Automatically return a default action
+            print(f"SMOKE MODE: {player.player_id} auto-acting.")
+            if allowed_actions.get("check") and (game_state.current_bet_to_match - player.current_bet) <=0:
+                print(f"SMOKE MODE: {player.player_id} auto-checking.")
+                return Action(type="check", player_id=player.player_id)
+            # Prefer call if possible and a bet is faced
+            elif allowed_actions.get("call") and (game_state.current_bet_to_match - player.current_bet) > 0:
+                 actual_call_amount = allowed_actions.get("call")
+                 if isinstance(actual_call_amount, int) and actual_call_amount > 0 and actual_call_amount <= player.stack : # Ensure player can cover
+                    print(f"SMOKE MODE: {player.player_id} auto-calling {actual_call_amount}.")
                     return Action(type="call", amount=actual_call_amount, player_id=player.player_id)
-
-        # Fallback to fold if check/call not simple options
-        if allowed_actions.get("fold"):
-            print(f"SMOKE TEST: {player.player_id} auto-folding.")
-            return Action(type="fold", player_id=player.player_id)
-
-        # If somehow fold is not an option, but others are (e.g. only bet/raise from all-in players), take first available.
-        # This state should be rare.
-        print(f"SMOKE TEST: {player.player_id} no simple action, taking first from {allowed_actions}")
-        if allowed_actions:
-            first_action_type = list(allowed_actions.keys())[0]
-            if first_action_type == "bet":
-                return Action(type="bet", amount=allowed_actions["bet"]["min"], player_id=player.player_id)
-            elif first_action_type == "raise":
-                 return Action(type="raise", amount=allowed_actions["raise"]["min_total_bet"], player_id=player.player_id)
-            # Fallback to a check action if nothing else (should be covered by fold)
-            return Action(type="check", player_id=player.player_id)
+                 # If call amount is > stack, but call is allowed, it implies an all-in call
+                 elif isinstance(actual_call_amount, int) and actual_call_amount > 0 and actual_call_amount > player.stack and player.stack > 0:
+                    print(f"SMOKE MODE: {player.player_id} auto-calling ALL-IN for {player.stack}.")
+                    return Action(type="call", amount=player.stack, player_id=player.player_id)
 
 
-        # Original input loop below, commented out for smoke test
-        # # while True:
-        # #     try:
-        # #         choice = input(f"{player.player_id}, choose action (number or type e.g. 'bet 50'): ").strip().lower()
-        # #         parts = choice.split()
-        # #         action_type_input = parts[0]
+            # Fallback to fold if check/sensible call not simple options
+            if allowed_actions.get("fold"):
+                print(f"SMOKE MODE: {player.player_id} auto-folding.")
+                return Action(type="fold", player_id=player.player_id)
 
-        # #         selected_action = None
+            # If somehow fold is not an option, but others are (e.g. only bet/raise from all-in players), take first available.
+            # This state should be rare.
+            print(f"SMOKE MODE: {player.player_id} no simple action, taking first from {allowed_actions}")
+            if allowed_actions: # Should always be true if this path is reached
+                first_action_type = list(allowed_actions.keys())[0]
+                if first_action_type == "bet" and isinstance(allowed_actions["bet"], dict):
+                    return Action(type="bet", amount=allowed_actions["bet"]["min"], player_id=player.player_id)
+                elif first_action_type == "raise" and isinstance(allowed_actions["raise"], dict):
+                     return Action(type="raise", amount=allowed_actions["raise"]["min_total_bet"], player_id=player.player_id)
+                # Fallback to a check action if nothing else (should be covered by fold)
+                return Action(type="check", player_id=player.player_id) # Should be caught by player all-in if no actions
+            else: # No allowed actions, implies player is all-in or situation is resolved.
+                return Action(type="check", player_id=player.player_id) # Effectively a pass
 
-        # #         # Try matching by number first
-        # #         if action_type_input in action_map:
-        # #             action_val = action_map[action_type_input]
-        # #             if isinstance(action_val, Action):
-        # #                 selected_action = action_val
-        # #             elif action_val == "bet_input":
-        # #                 action_type_input = "bet" # Fall through to amount processing
-        # #             elif action_val == "raise_input":
-        # #                 action_type_input = "raise" # Fall through to amount processing
+        # NORMAL MODE: Interactive input loop
+        else:
+            while True:
+                try:
+                    choice = input(f"{player.player_id}, choose action (number or type e.g. 'bet 50'): ").strip().lower()
+                    parts = choice.split()
+                    action_type_input = parts[0]
 
-        # #         if selected_action: # Action like fold, check, call (by number)
-        # #             return selected_action
+                    selected_action = None
 
-        # #         # Process textual input like "bet 50" or "raise 100"
-        # #         # This part also handles numerical inputs that were markers e.g. "3" -> "bet_input"
+                    # Try matching by number first
+                    if action_type_input in action_map: # action_map defined earlier in the function
+                        action_val = action_map[action_type_input]
+                        if isinstance(action_val, Action):
+                            selected_action = action_val
+                        elif action_val == "bet_input":
+                            action_type_input = "bet" # Fall through to amount processing
+                        elif action_val == "raise_input":
+                            action_type_input = "raise" # Fall through to amount processing
 
-        # #         action_amount = 0
-        # #         if len(parts) > 1:
-        # #             try:
-        # #                 action_amount = int(parts[1])
-        # #             except ValueError:
-        # #                 print("Invalid amount. Please enter a number.")
-        # #                 continue
+                    if selected_action: # Action like fold, check, call (by number)
+                        return selected_action
 
-        # #         if action_type_input == "fold":
-        # #             if allowed_actions.get("fold"):
-        # #                 return Action(type="fold", player_id=player.player_id)
-        # #             else: print("Fold not allowed.")
-        # #         elif action_type_input == "check":
-        # #             if allowed_actions.get("check") and amount_to_call <=0:
-        # #                 return Action(type="check", player_id=player.player_id)
-        # #             else: print("Check not allowed (must call or raise).")
-        # #         elif action_type_input == "call":
-        # #             if allowed_actions.get("call") and amount_to_call > 0:
-        # #                 call_cost = min(player.stack, amount_to_call)
-        # #                 return Action(type="call", amount=call_cost, player_id=player.player_id)
-        # #             else: print("Call not allowed or nothing to call.")
+                    action_amount = 0
+                    if len(parts) > 1:
+                        try:
+                            action_amount = int(parts[1])
+                        except ValueError:
+                            print("Invalid amount. Please enter a number.")
+                            continue
 
-        # #         elif action_type_input == "bet":
-        # #             if allowed_actions.get("bet") and amount_to_call <= 0:
-        # #                 if len(parts) < 2:
-        # #                     print("Please specify bet amount (e.g., 'bet 50').")
-        # #                     continue
-        # #                 # min_bet and max_bet defined earlier
-        # #                 if not (min_bet <= action_amount <= max_bet):
-        # #                     print(f"Invalid bet amount. Must be between {min_bet} and {max_bet}. Your stack: {player.stack}")
-        # #                     continue
-        # #                 if action_amount > player.stack:
-        # #                      print(f"Cannot bet more than your stack ({player.stack}). Going all-in.")
-        # #                      action_amount = player.stack
-        # #                 return Action(type="bet", amount=action_amount, player_id=player.player_id)
-        # #             else:
-        # #                 print("Bet not allowed (must call or raise, or check).")
+                    if action_type_input == "fold":
+                        if allowed_actions.get("fold"):
+                            return Action(type="fold", player_id=player.player_id)
+                        else: print("Fold not allowed.")
+                    elif action_type_input == "check":
+                        if allowed_actions.get("check") and amount_to_call <=0: # amount_to_call defined earlier
+                            return Action(type="check", player_id=player.player_id)
+                        else: print("Check not allowed (must call or raise).")
+                    elif action_type_input == "call":
+                        if allowed_actions.get("call") and amount_to_call > 0:
+                            call_cost = min(player.stack, amount_to_call)
+                            return Action(type="call", amount=call_cost, player_id=player.player_id)
+                        else: print("Call not allowed or nothing to call.")
 
-        # #         elif action_type_input == "raise":
-        # #             if allowed_actions.get("raise") and amount_to_call > 0:
-        # #                 if len(parts) < 2:
-        # #                     print("Please specify total raise amount (e.g., 'raise 100').")
-        # #                     continue
-        # #                 # min_raise (total) and max_raise (total) defined earlier
-        # #                 # action_amount here is the TOTAL amount player is making their bet to.
-        # #                 # The actual "raise amount" on top of call is action_amount - amount_to_call
-        # #                 if not (min_raise <= action_amount <= max_raise):
-        # #                     print(f"Invalid raise (total) amount. Must be between {min_raise} and {max_raise}. Your stack: {player.stack}")
-        # #                     continue
-        # #                 if action_amount > player.stack:
-        # #                     print(f"Cannot raise to more than your stack ({player.stack}). Raising all-in.")
-        # #                     action_amount = player.stack
-        # #                 if action_amount <= game_state.current_bet_to_match : # Must raise above current bet
-        # #                     print(f"Must raise to more than current bet to match ({game_state.current_bet_to_match}).")
-        # #                     continue
+                    elif action_type_input == "bet":
+                        # min_bet, max_bet are defined earlier in the function
+                        if allowed_actions.get("bet") and amount_to_call <= 0:
+                            if len(parts) < 2:
+                                print("Please specify bet amount (e.g., 'bet 50').")
+                                continue
+                            if not (min_bet <= action_amount <= max_bet):
+                                print(f"Invalid bet amount. Must be between {min_bet} and {max_bet}. Your stack: {player.stack}")
+                                continue
+                            if action_amount > player.stack:
+                                 print(f"Cannot bet more than your stack ({player.stack}). Going all-in.")
+                                 action_amount = player.stack
+                            return Action(type="bet", amount=action_amount, player_id=player.player_id)
+                        else:
+                            print("Bet not allowed (must call or raise, or check).")
 
-        # #                 return Action(type="raise", amount=action_amount, player_id=player.player_id)
-        # #             else:
-        # #                 print("Raise not allowed or no bet to raise.")
-        # #         else:
-        # #             print(f"Invalid action type: '{action_type_input}'. Choices: {', '.join(c.split()[0] for c in possible_choices if '<' not in c) + ['bet <amt>', 'raise <amt>']}")
+                    elif action_type_input == "raise":
+                        # min_raise, max_raise are defined earlier in the function
+                        if allowed_actions.get("raise") and amount_to_call > 0:
+                            if len(parts) < 2:
+                                print("Please specify total raise amount (e.g., 'raise 100').")
+                                continue
+                            if not (min_raise <= action_amount <= max_raise): # min_raise and max_raise are total bet amounts
+                                print(f"Invalid raise (total) amount. Must be between {min_raise} and {max_raise}. Your stack: {player.stack}")
+                                continue
+                            if action_amount > player.stack: # This check might be redundant if max_raise is player.stack
+                                print(f"Cannot raise to more than your stack ({player.stack}). Raising all-in.")
+                                action_amount = player.stack # This should be player.current_bet + player.stack if action_amount is total
+                                                             # No, action_amount IS the total bet here. So it should be capped at player's total betting capacity.
+                                                             # Max_raise is already player.stack (total).
+                            if action_amount <= game_state.current_bet_to_match :
+                                print(f"Must raise to more than current bet to match ({game_state.current_bet_to_match}).")
+                                continue
 
-        # #     except Exception as e:
-        # #         print(f"An error occurred processing input: {e}. Please try again.")
-        pass # End of get_player_action for smoke test
+                            return Action(type="raise", amount=action_amount, player_id=player.player_id)
+                        else:
+                            print("Raise not allowed or no bet to raise.")
+                    else:
+                        print(f"Invalid action type: '{action_type_input}'. Choices: {', '.join(c.split()[0] for c in possible_choices if '<' not in c) + ['bet <amt>', 'raise <amt>']}")
+
+                except EOFError:
+                    print("\nEOFError: Input stream ended. This can happen in non-interactive environments.")
+                    print("Defaulting to FOLD action for this turn.")
+                    if allowed_actions.get("fold"):
+                        return Action(type="fold", player_id=player.player_id)
+                    else: # Should not happen if fold is always possible unless all-in with no action
+                        return Action(type="check", player_id=player.player_id) # Fallback
+                except Exception as e:
+                    print(f"An error occurred processing input: {e}. Please try again.")
 
     def notify_event(self, event: GameEvent, game_state: GameState) -> None:
         # Simple console logging of events
