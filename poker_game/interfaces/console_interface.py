@@ -165,6 +165,19 @@ class ConsoleInterface(GameInterface):
                                 return Action(type="raise", amount=action_amount, player_id=player.player_id)
                             else: print("Raise cancelled."); continue
                         else: print("Action 'raise' is not allowed now (e.g. no prior bet to raise).")
+                    elif action_type_input in ["quit", "exit"]:
+                        confirm_quit = ""
+                        try:
+                            confirm_quit = input("Are you sure you want to quit the game? (y/n): ").strip().lower()
+                        except EOFError:
+                            print("\nEOFError during quit confirmation. Assuming 'n'.")
+                            confirm_quit = "n" # Default to not quitting if input fails
+
+                        if confirm_quit == 'y':
+                            return Action(type="quit", player_id=player.player_id)
+                        else:
+                            print("Quit cancelled.")
+                            continue # Re-prompt for action
                     else:
                         # This case should ideally be caught by the initial action_type_input check
                         print(f"Unrecognized action command: '{action_type_input}'. Valid actions: {', '.join(possible_choices_display)}")
