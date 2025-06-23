@@ -757,4 +757,3 @@ class GameEngine:
         # is_game_over() is called at the start of the main game loop in start_game()
         # If a player quit, self.game_state.is_game_over is already true.
         pass
-```
