@@ -240,6 +240,28 @@ class ConsoleInterface(GameInterface):
         community_cards_str = " ".join(str(c) for c in game_state.community_cards) if game_state.community_cards else "None"
         print(f"Community: [ {community_cards_str} ]")
 
+        # Display Human Player's cards prominently if they are in the game
+        human_player_obj = None
+        for p_obj in game_state.players:
+            if isinstance(p_obj, HumanPlayer):
+                human_player_obj = p_obj
+                break
+
+        if human_player_obj and human_player_obj.hole_cards and not human_player_obj.is_folded :
+            # show_hole_cards_for_player is used when it's specifically the human's turn to ensure they see their cards.
+            # For general display, if the human is involved and has cards, show them.
+            # The original request was to show it right under the round/phase.
+            # Let's make it conditional on current_player_id being the human OR if show_hole_cards_for_player is set for them.
+            # The new request is to show it "immediately after the announcement of the round/stage"
+            # This means it should be printed before other details if the human is the focus or it's their turn.
+            # For now, let's try putting it here, always for the human if they have cards.
+            # This might be too much if it's not their turn.
+            # The prompt asks "мои карты отображались сразу под объявлением этапа" - "my cards were displayed..."
+            # This implies it's from the human player's perspective.
+            # So, only if current_player_id is the human, or if show_hole_cards_for_player is the human.
+            # The most straightforward way is to always show it if the HumanPlayer has cards and is not folded.
+             print(f"🂡 Your cards: {' '.join(str(c) for c in human_player_obj.hole_cards)}")
+
         total_pot_display = game_state.pot_size + game_state.current_round_pot
         print(f"💰 Pot: {total_pot_display} chips")
 

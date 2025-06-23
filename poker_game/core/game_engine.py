@@ -92,15 +92,22 @@ class GameEngine:
             if self.is_game_over(): # Check again for conditions like only one player left
                 break
 
-        # Game ended
+        # Game ended - Save the final state
+        self.repository.save_game(self.game_id, self.game_state) # Ensure final state is saved
+
         final_reason = "Only one player remaining or max rounds reached."
         if hasattr(self.game_state, 'game_over_reason') and self.game_state.game_over_reason:
             final_reason = self.game_state.game_over_reason
 
         self.event_system.post(GameEvent(type="game_end", data={"reason": final_reason}))
-        # Display final stats or winner if applicable
-        # If game ended by quit, the quit message is already shown by _process_player_action
-        if not (hasattr(self.game_state, 'game_over_reason') and hasattr(self.game_state.game_over_reason, 'lower') and "quit" in self.game_state.game_over_reason.lower()):
+
+        # Display "Game Over!" message unless it was a quit (which already showed a message)
+        player_quit = False
+        if hasattr(self.game_state, 'game_over_reason') and self.game_state.game_over_reason:
+            if "quit" in self.game_state.game_over_reason.lower():
+                player_quit = True
+
+        if not player_quit:
              self.interface.show_message("Game Over!")
 
 
