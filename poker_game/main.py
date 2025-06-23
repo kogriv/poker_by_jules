@@ -12,22 +12,41 @@ def main():
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["normal", "smoke"],
+        choices=["normal", "smoke", "web"],
         default="normal",
-        help="Game mode: 'normal' for interactive play, 'smoke' for automated human actions (default: normal)."
+        help="Game mode: 'normal' for console interactive, 'smoke' for console auto, 'web' for web interface."
     )
     args = parser.parse_args()
     game_mode = args.mode
 
+    if game_mode == "web":
+        print("Starting Web Mode...")
+        # Import web_server and run it.
+        # Ensure web_server.py can be run as a module or its app can be imported and run.
+        try:
+            from web_server import app, socketio # Assuming app and socketio are defined in web_server.py
+            print("Starting Flask-SocketIO server for web interface on http://localhost:5000")
+            # The web_server.py's __main__ block usually handles the socketio.run or app.run
+            # If importing, you might need to call socketio.run(app, ...) here,
+            # or structure web_server.py to have a start_server() function.
+            # For now, let's assume running web_server.py directly is the way for web mode.
+            # This main.py might just delegate to it.
+            # For a simple integrated start:
+            socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+        except ImportError:
+            print("Could not import web_server. Make sure it's in the project root and Flask/SocketIO are installed.")
+        except Exception as e:
+            print(f"Error starting web server: {e}")
+        return # Exit main.py after attempting to start web server
+
     print(f"Welcome to Console Poker! (Mode: {game_mode})")
 
-    # Setup components
+    # Setup components for console modes
     event_system = EventSystem()
     repository = MemoryRepository()
-    # Pass game_mode to interface
     interface = ConsoleInterface(game_mode=game_mode)
 
-    # Player setup
+    # Player setup for console modes
     players = []
 
     if game_mode == "smoke":
