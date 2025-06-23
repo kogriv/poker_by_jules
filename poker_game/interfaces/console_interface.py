@@ -189,14 +189,9 @@ class ConsoleInterface(GameInterface):
             action_type = event.data.get('action_type', 'unknown_action')
             amount = event.data.get('amount', 0)
 
-            # Don't print for human player's own action if interactive, as it's just been entered.
-            # However, in smoke mode or for bot actions, it's useful.
-            is_current_human_turn = (player_id == game_state.get_player_by_id(current_player_id).player_id
-                                     if current_player_id and isinstance(game_state.get_player_by_id(current_player_id), HumanPlayer)
-                                     else False) # Need current_player_id if want to suppress own human action log
-
-            # For simplicity in notify_event, we'll print all actions for now.
-            # GameEngine will call display_game_state which is the main view.
+            # The check for is_current_human_turn was causing NameError because current_player_id is not in scope here.
+            # For now, notify_event will print all actions. display_game_state is the primary view.
+            # If suppression of human's own action log is desired, current_player_id would need to be passed to notify_event.
 
             if action_type == "small_blind":
                 print(f"{player_id} posts Small Blind ({amount})")

@@ -80,12 +80,29 @@ def main():
     game_id = settings.DEFAULT_GAME_ID
 
     # Allow loading a game or starting new one
-    # choice = input(f"Load existing game '{game_id}'? (y/n, default n): ").strip().lower() # Skip for smoke test
-    # if choice == 'y':
-    #     if repository.load_game(game_id) is None:
-    #         print(f"No saved game found for '{game_id}'. Starting a new game.")
-    # else:
-    print("Starting a new game for smoke test.")
+    loaded_game_successfully = False
+    if game_mode == "normal": # Only ask to load in normal mode
+        choice = ""
+        try:
+            choice = input(f"Load existing game '{game_id}'? (y/n, default n): ").strip().lower()
+        except EOFError:
+            print("\nEOFError encountered for load game prompt. Defaulting to new game.")
+            choice = "n"
+
+        if choice == 'y':
+            if repository.load_game(game_id) is not None: # GameEngine will handle actual loading
+                print(f"Attempting to load game '{game_id}'.")
+                # GameEngine will try to load it. If it fails, it starts fresh.
+                # No need to print "No saved game found..." here, engine handles it.
+                loaded_game_successfully = True # Assume engine will load if found by repo check
+            else:
+                print(f"No saved game data found for '{game_id}' by repository. Starting a new game.")
+        else:
+            print("Starting a new game.")
+    else: # Smoke mode
+        print("Smoke mode: Starting a new game by default (no load prompt).")
+        # Optionally, could try to delete existing game if smoke mode should always be fresh
+        # repository.delete_game(game_id)
 
 
     engine = GameEngine(
