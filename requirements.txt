@@ -1,3 +1,5 @@
-# No external dependencies for the current MVP.
-# This file is a placeholder for future requirements.
-# Standard library modules like dataclasses, datetime, typing, abc, random, unittest are used.
+Flask>=2.0
+Flask-SocketIO>=5.0
+python-socketio>=5.0 # Often a dependency of Flask-SocketIO, good to specify
+# eventlet or gevent can be added here if specific async mode is required for production
+# e.g., eventlet>=0.30.0
